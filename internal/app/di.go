@@ -9,16 +9,21 @@ import (
 )
 
 type Dependencies struct {
-	AdminService *services.AdminService
+	AdminService   *services.AdminService
+	StudentService *services.StudentService
 	// Add your other services here
 }
 
 func InitializeDependencies(cfg *config.Config, mongoClient *mongo.Client) (*Dependencies, error) {
 	adminRepo := repository.NewAdminRepository(cfg, mongoClient)
+	studentRepo := repository.NewStudentRepository(cfg, mongoClient)
+
 	adminService := services.NewAdminService(adminRepo)
+	studentService := services.NewStudentService(studentRepo)
 
 	return &Dependencies{
-		AdminService: adminService,
+		AdminService:   adminService,
+		StudentService: studentService,
 		// Add your other services here
 	}, nil
 }

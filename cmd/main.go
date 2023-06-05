@@ -1,4 +1,3 @@
-// cmd/main.go
 package main
 
 import (
@@ -11,6 +10,8 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/didip/tollbooth"
+	"github.com/didip/tollbooth_gin"
 	"github.com/gin-gonic/gin"
 )
 
@@ -31,7 +32,7 @@ func main() {
 	}
 
 	router := gin.Default()
-	router.Use(corsMiddleware())
+	router.Use(corsMiddleware(), rateLimitMiddleware(), cspMiddleware())
 
 	handlers.Routes(router, cfg, deps)
 
@@ -55,5 +56,17 @@ func corsMiddleware() gin.HandlerFunc {
 		} else {
 			c.Next()
 		}
+	}
+}
+
+func rateLimitMiddleware() gin.HandlerFunc {
+	limiter := tollbooth.NewLimiter(1, nil) // limit to 1 request per IP per second
+	return tollbooth_gin.LimitHandler(limiter)
+}
+
+func cspMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		c.Writer.Header().Set("Content-Security-Policy", "default-src 'self'")
+		c.Next()
 	}
 }

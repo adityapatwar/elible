@@ -10,17 +10,20 @@ import (
 )
 
 type RoutesHandler struct {
-	adminHandler *AdminHandler
+	adminHandler   *AdminHandler
+	studentHandler *StudentHandler
 }
 
-func NewRoutesHandler(adminService *services.AdminService) *RoutesHandler {
+func NewRoutesHandler(adminService *services.AdminService, studentService *services.StudentService) *RoutesHandler {
 	return &RoutesHandler{
-		adminHandler: NewAdminHandler(adminService),
+		adminHandler:   NewAdminHandler(adminService),
+		studentHandler: NewStudentHandler(studentService),
 	}
 }
 
 func Routes(router *gin.Engine, cfg *config.Config, deps *internal.Dependencies) {
 	adminHandler := NewAdminHandler(deps.AdminService)
+	studentHandler := NewStudentHandler(deps.StudentService)
 
 	adminGroup := router.Group("/admin")
 	{
@@ -29,4 +32,12 @@ func Routes(router *gin.Engine, cfg *config.Config, deps *internal.Dependencies)
 		// adminGroup.POST("/logout", adminHandler.)
 	}
 
+	studentGroup := router.Group("/student")
+	{
+		studentGroup.POST("/create", studentHandler.RegisterStudent)
+		studentGroup.POST("/all", studentHandler.GetAllStudents)
+		studentGroup.POST("/delete", studentHandler.DeleteStudent)
+		studentGroup.POST("/update", studentHandler.UpdateStudent)
+		studentGroup.POST("/add-service", studentHandler.AddServiceToStudent)
+	}
 }
