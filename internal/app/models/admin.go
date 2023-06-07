@@ -10,3 +10,4 @@ type Admin struct {
 	Email    string             `bson:"email,omitempty"`
 	FullName string             `bson:"fullName,omitempty"`
 }
+

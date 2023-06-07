@@ -50,6 +50,10 @@ func (s *AdminService) Login(username, password string) (*models.Admin, string, 
 		return nil, "", err
 	}
 
+	if admin == nil {
+		return nil, "", errors.New("admin not found")
+	}
+
 	if err := bcrypt.CompareHashAndPassword([]byte(admin.Password), []byte(password)); err != nil {
 		return nil, "", errors.New("invalid password")
 	}
@@ -61,7 +65,7 @@ func (s *AdminService) Login(username, password string) (*models.Admin, string, 
 
 	token := &models.Token{
 		AccessToken: tokenDetails.AccessToken,
-		AccessUUID:  tokenDetails.AccessUUID,
+		AccessUUID:  admin.ID.Hex(),
 		AtExpires:   tokenDetails.AtExpires,
 	}
 
@@ -71,4 +75,8 @@ func (s *AdminService) Login(username, password string) (*models.Admin, string, 
 	}
 
 	return admin, token.AccessToken, nil
+}
+
+func (s *AdminService) GetAdminByToken(token string) (*models.Admin, error) {
+	return s.repo.GetAdminByToken(token)
 }
