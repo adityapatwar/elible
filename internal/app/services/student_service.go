@@ -37,8 +37,16 @@ func (s *StudentService) Create(student *models.Student) error {
 	return nil
 }
 
-func (s *StudentService) GetAll() ([]*models.Student, error) {
-	return s.repo.GetAll()
+func (s *StudentService) GetAll(filter *models.StudentFilter) ([]*models.Student, error) {
+	return s.repo.GetAll(filter)
+}
+
+func (s *StudentService) GetByID(studentID string) (*models.Student, error) {
+	objectId, err := primitive.ObjectIDFromHex(studentID)
+	if err != nil {
+		return nil,err
+	}
+	return s.repo.GetByID(objectId)
 }
 
 func (s *StudentService) Delete(studentID string) error {
@@ -71,4 +79,12 @@ func (s *StudentService) AddService(studentID string, service *models.TrackRecor
 		return err
 	}
 	return s.repo.AddService(objectId, service)
+}
+
+func (s *StudentService) AddLobby(studentID string, lobby *models.Student) error {
+	objectId, err := primitive.ObjectIDFromHex(studentID)
+	if err != nil {
+		return err
+	}
+	return s.repo.AddLobby(objectId, lobby)
 }

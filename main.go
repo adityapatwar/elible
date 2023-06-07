@@ -5,7 +5,6 @@ import (
 	"elible/internal/app/handlers"
 	"elible/internal/config"
 	"elible/internal/mongodb"
-	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -41,7 +40,7 @@ func main() {
 		port = "8080"
 	}
 
-	fmt.Printf("Server running on port %s\n", port)
+	// fmt.Printf("Server running on port %s\n", port)
 	log.Fatal(router.Run(":" + port))
 }
 
@@ -60,7 +59,7 @@ func corsMiddleware() gin.HandlerFunc {
 }
 
 func rateLimitMiddleware() gin.HandlerFunc {
-	limiter := tollbooth.NewLimiter(1, nil) // limit to 1 request per IP per second
+	limiter := tollbooth.NewLimiter(10, nil) // limit to 10 request per IP per second
 	return tollbooth_gin.LimitHandler(limiter)
 }
 

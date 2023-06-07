@@ -36,8 +36,10 @@ func Routes(router *gin.Engine, cfg *config.Config, deps *internal.Dependencies)
 	{
 		studentGroup.POST("/create", studentHandler.RegisterStudent)
 		studentGroup.POST("/all", studentHandler.GetAllStudents)
+		studentGroup.POST("/id", studentHandler.GetIdStudents)
 		studentGroup.POST("/delete", studentHandler.DeleteStudent)
 		studentGroup.POST("/update", studentHandler.UpdateStudent)
 		studentGroup.POST("/add-service", studentHandler.AddServiceToStudent)
+		studentGroup.POST("/add-lobby", studentHandler.AddLobbyProgressToStudent)
 	}
 }

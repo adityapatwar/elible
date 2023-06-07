@@ -13,7 +13,7 @@ func ConnectMongoDB(uri, dbName string) (*mongo.Client, error) {
 	clientOptions := options.Client().ApplyURI(uri)
 
 	// Use Jakarta's time zone
-	location, _ := time.LoadLocation("Asia/Jakarta")
+	// location, _ := time.LoadLocation("Asia/Jakarta")
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
@@ -29,6 +29,6 @@ func ConnectMongoDB(uri, dbName string) (*mongo.Client, error) {
 		return nil, fmt.Errorf("failed to ping MongoDB: %v", err)
 	}
 
-	fmt.Println("Connected to MongoDB successfully at", time.Now().In(location))
+	// fmt.Println("Connected to MongoDB successfully at", time.Now().In(location))
 	return client, nil
 }

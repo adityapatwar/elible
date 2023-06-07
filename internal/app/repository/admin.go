@@ -3,7 +3,6 @@ package repository
 
 import (
 	"context"
-	"log"
 	"time"
 
 	"elible/internal/app/models"
@@ -32,7 +31,7 @@ func (r *AdminRepository) Create(admin *models.Admin) error {
 
 	_, err := AdminCollection.InsertOne(ctx, admin)
 	if err != nil {
-		log.Printf("Error while inserting new admin into db, Reason: %v\n", err)
+		// log.Printf("Error while inserting new admin into db, Reason: %v\n", err)
 		return err
 	}
 	return nil
@@ -66,7 +65,7 @@ func (r *AdminRepository) SaveToken(td *models.Token) error {
 	// Delete any existing token associated with the same access_uuid
 	_, err := TokenCollection.DeleteOne(ctx, bson.M{"access_uuid": td.AccessUUID})
 	if err != nil {
-		log.Printf("Error while deleting old token from db, Reason: %v\n", err)
+		// log.Printf("Error while deleting old token from db, Reason: %v\n", err)
 		// You might want to handle this error, instead of just logging
 	}
 
