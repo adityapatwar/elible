@@ -3,6 +3,7 @@ package handlers
 
 import (
 	internal "elible/internal/app"
+	"elible/internal/app/middleware"
 	"elible/internal/app/services"
 	"elible/internal/config"
 
@@ -27,19 +28,20 @@ func Routes(router *gin.Engine, cfg *config.Config, deps *internal.Dependencies)
 
 	adminGroup := router.Group("/admin")
 	{
-		adminGroup.POST("/create", adminHandler.RegisterAdmin)
+		adminGroup.POST("/create", middleware.AdminMiddleware(cfg, deps.AdminService, true, false, adminHandler.RegisterAdmin))
 		adminGroup.POST("/login", adminHandler.LoginAdmin)
+		adminGroup.POST("/profil", middleware.AdminMiddleware(cfg, deps.AdminService, false, true, adminHandler.GetProfileByToken))
 		// adminGroup.POST("/logout", adminHandler.)
 	}
 
 	studentGroup := router.Group("/student")
 	{
-		studentGroup.POST("/create", studentHandler.RegisterStudent)
-		studentGroup.POST("/all", studentHandler.GetAllStudents)
-		studentGroup.POST("/id", studentHandler.GetIdStudents)
-		studentGroup.POST("/delete", studentHandler.DeleteStudent)
-		studentGroup.POST("/update", studentHandler.UpdateStudent)
-		studentGroup.POST("/add-service", studentHandler.AddServiceToStudent)
-		studentGroup.POST("/add-lobby", studentHandler.AddLobbyProgressToStudent)
+		studentGroup.POST("/create", middleware.AdminMiddleware(cfg, deps.AdminService, false, true, studentHandler.RegisterStudent))
+		studentGroup.POST("/all", middleware.AdminMiddleware(cfg, deps.AdminService, false, true, studentHandler.GetAllStudents))
+		studentGroup.POST("/id", middleware.AdminMiddleware(cfg, deps.AdminService, false, true, studentHandler.GetIdStudents))
+		studentGroup.POST("/delete", middleware.AdminMiddleware(cfg, deps.AdminService, false, true, studentHandler.DeleteStudent))
+		studentGroup.POST("/update", middleware.AdminMiddleware(cfg, deps.AdminService, false, true, studentHandler.UpdateStudent))
+		studentGroup.POST("/add-service", middleware.AdminMiddleware(cfg, deps.AdminService, false, true, studentHandler.AddServiceToStudent))
+		studentGroup.POST("/add-lobby", middleware.AdminMiddleware(cfg, deps.AdminService, false, true, studentHandler.AddLobbyProgressToStudent))
 	}
 }
