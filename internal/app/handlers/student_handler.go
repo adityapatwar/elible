@@ -43,7 +43,7 @@ type AddLobbyRequest struct {
 
 func (h *StudentHandler) RegisterStudent(c *gin.Context) {
 	var student models.Student
-	if err := c.ShouldBindJSON(&student); err != nil {
+	if err := c.ShouldBind(&student); err != nil {
 		c.JSON(http.StatusBadRequest, errors.NewResponseError(http.StatusBadRequest, err.Error()))
 		return
 	}
@@ -59,7 +59,7 @@ func (h *StudentHandler) RegisterStudent(c *gin.Context) {
 
 func (h *StudentHandler) GetAllStudents(c *gin.Context) {
 	var filter models.StudentFilter
-	if err := c.ShouldBindJSON(&filter); err != nil {
+	if err := c.ShouldBind(&filter); err != nil {
 		c.JSON(http.StatusBadRequest, errors.NewResponseError(http.StatusBadRequest, err.Error()))
 		return
 	}
@@ -75,7 +75,7 @@ func (h *StudentHandler) GetAllStudents(c *gin.Context) {
 
 func (h *StudentHandler) GetIdStudents(c *gin.Context) {
 	var request RequestWithID
-	if err := c.ShouldBindJSON(&request); err != nil {
+	if err := c.ShouldBind(&request); err != nil {
 		c.JSON(http.StatusBadRequest, errors.NewResponseError(http.StatusBadRequest, err.Error()))
 		return
 	}
@@ -92,7 +92,7 @@ func (h *StudentHandler) GetIdStudents(c *gin.Context) {
 
 func (h *StudentHandler) DeleteStudent(c *gin.Context) {
 	var request RequestWithID
-	if err := c.ShouldBindJSON(&request); err != nil {
+	if err := c.ShouldBind(&request); err != nil {
 		c.JSON(http.StatusBadRequest, errors.NewResponseError(http.StatusBadRequest, err.Error()))
 		return
 	}
@@ -108,7 +108,7 @@ func (h *StudentHandler) DeleteStudent(c *gin.Context) {
 
 func (h *StudentHandler) DeactivateStudent(c *gin.Context) {
 	var request RequestWithID
-	if err := c.ShouldBindJSON(&request); err != nil {
+	if err := c.ShouldBind(&request); err != nil {
 		c.JSON(http.StatusBadRequest, errors.NewResponseError(http.StatusBadRequest, err.Error()))
 		return
 	}
@@ -123,7 +123,7 @@ func (h *StudentHandler) DeactivateStudent(c *gin.Context) {
 
 func (h *StudentHandler) UpdateStudent(c *gin.Context) {
 	var request UpdateStudentRequest
-	if err := c.ShouldBindJSON(&request); err != nil {
+	if err := c.ShouldBind(&request); err != nil {
 		c.JSON(http.StatusBadRequest, errors.NewResponseError(http.StatusBadRequest, err.Error()))
 		return
 	}
@@ -147,7 +147,7 @@ func (h *StudentHandler) UpdateStudent(c *gin.Context) {
 
 func (h *StudentHandler) AddServiceToStudent(c *gin.Context) {
 	var request AddServiceRequest
-	if err := c.ShouldBindJSON(&request); err != nil {
+	if err := c.ShouldBind(&request); err != nil {
 		c.JSON(http.StatusBadRequest, errors.NewResponseError(http.StatusBadRequest, err.Error()))
 		return
 	}
@@ -169,7 +169,7 @@ func (h *StudentHandler) AddServiceToStudent(c *gin.Context) {
 
 func (h *StudentHandler) AddLobbyProgressToStudent(c *gin.Context) {
 	var request AddLobbyRequest
-	if err := c.ShouldBindJSON(&request); err != nil {
+	if err := c.ShouldBind(&request); err != nil {
 		c.JSON(http.StatusBadRequest, errors.NewResponseError(http.StatusBadRequest, err.Error()))
 		return
 	}
