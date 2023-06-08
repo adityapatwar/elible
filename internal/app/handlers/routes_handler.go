@@ -43,5 +43,6 @@ func Routes(router *gin.Engine, cfg *config.Config, deps *internal.Dependencies)
 		studentGroup.POST("/update", middleware.AdminMiddleware(cfg, deps.AdminService, false, true, studentHandler.UpdateStudent))
 		studentGroup.POST("/add-service", middleware.AdminMiddleware(cfg, deps.AdminService, false, true, studentHandler.AddServiceToStudent))
 		studentGroup.POST("/add-lobby", middleware.AdminMiddleware(cfg, deps.AdminService, false, true, studentHandler.AddLobbyProgressToStudent))
+		studentGroup.POST("/upload", middleware.AdminMiddleware(cfg, deps.AdminService, false, true, studentHandler.uploadImage))
 	}
 }

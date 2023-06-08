@@ -3,9 +3,12 @@ package handlers
 
 import (
 	"net/http"
+	"os"
+	"path/filepath"
 
 	"elible/internal/app/models"
 	"elible/internal/app/services"
+	utils "elible/internal/app/utils"
 	errors "elible/internal/pkg"
 
 	"github.com/gin-gonic/gin"
@@ -187,4 +190,47 @@ func (h *StudentHandler) AddLobbyProgressToStudent(c *gin.Context) {
 		"Progress": request.Lobby.Progress,
 	})
 	c.JSON(http.StatusOK, response)
+}
+
+func (h *StudentHandler) uploadImage(c *gin.Context) {
+	file, err := c.FormFile("image")
+	if err != nil {
+		c.JSON(http.StatusBadRequest, errors.NewResponseError(http.StatusBadRequest, err.Error()))
+		return
+	}
+
+	if valid := utils.IsImage(file); !valid {
+		c.JSON(http.StatusBadRequest, errors.NewResponseError(http.StatusBadRequest, "File is not an image"))
+		return
+	}
+
+	dir := os.Getenv("IMAGE_DIR")
+	if dir == "" {
+		c.JSON(http.StatusInternalServerError, errors.NewResponseError(http.StatusInternalServerError, "IMAGE_DIR environment variable is not set"))
+		return
+	}
+
+	if _, err := os.Stat(dir); os.IsNotExist(err) {
+		err = os.MkdirAll(dir, 0755)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, errors.NewResponseError(http.StatusInternalServerError, err.Error()))
+			return
+		}
+	}
+
+	dst := dir + filepath.Base(file.Filename)
+
+	if err := c.SaveUploadedFile(file, dst); err != nil {
+		c.JSON(http.StatusInternalServerError, errors.NewResponseError(http.StatusInternalServerError, err.Error()))
+		return
+	}
+
+	// Setting the file permission to readonly for all users (read and execute for owner)
+	if err := os.Chmod(dst, 0444); err != nil {
+		c.JSON(http.StatusInternalServerError, errors.NewResponseError(http.StatusInternalServerError, err.Error()))
+		return
+	}
+
+	response := errors.NewResponseData(http.StatusCreated, "Upload Image Success ", dst)
+	c.JSON(http.StatusCreated, response)
 }
