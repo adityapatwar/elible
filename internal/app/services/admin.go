@@ -3,6 +3,7 @@ package services
 
 import (
 	"errors"
+	"fmt"
 
 	"elible/internal/app/models"
 	"elible/internal/app/repository"
@@ -35,7 +36,10 @@ func (s *AdminService) Create(admin *models.Admin) error {
 	if err != nil {
 		return err
 	}
+	
+	fmt.Println("password ASeli :", admin.Password)
 	admin.Password = string(hashedPassword)
+	fmt.Println("Hashed password during creation:", admin.Password)
 
 	if err := s.repo.Create(admin); err != nil {
 		return err
@@ -54,7 +58,12 @@ func (s *AdminService) Login(username, password string) (*models.Admin, string, 
 		return nil, "", errors.New("admin not found")
 	}
 
+
+	fmt.Println("Password Hash Dari Database :", admin.Password)
+	fmt.Println("Password :", password)
+
 	if err := bcrypt.CompareHashAndPassword([]byte(admin.Password), []byte(password)); err != nil {
+		fmt.Println("Error comparing passwords:", err)
 		return nil, "", errors.New("invalid password")
 	}
 
