@@ -2,6 +2,7 @@
 package handlers
 
 import (
+	"fmt"
 	"net/http"
 
 	"elible/internal/app/models"
@@ -27,18 +28,18 @@ type RequestWithID struct {
 }
 
 type UpdateStudentRequest struct {
-	ID      string         `json:"id"`
+	ID      string         `json:"id" binding:"required"`
 	Student models.Student `json:"student"`
 }
 
 type AddServiceRequest struct {
-	ID      string             `json:"id" `
-	Service models.TrackRecord `json:"service"`
+	ID      string             `json:"id" binding:"required"`
+	Service models.TrackRecord `json:"service" binding:"required"`
 }
 
 type AddLobbyRequest struct {
-	ID    string         `json:"id" `
-	Lobby models.Student `json:"lobby"`
+	ID    string         `json:"id" binding:"required"`
+	Lobby models.Student `json:"lobby" binding:"required"`
 }
 
 func (h *StudentHandler) RegisterStudent(c *gin.Context) {
@@ -123,11 +124,13 @@ func (h *StudentHandler) DeactivateStudent(c *gin.Context) {
 
 func (h *StudentHandler) UpdateStudent(c *gin.Context) {
 	var request UpdateStudentRequest
+
+
 	if err := c.ShouldBind(&request); err != nil {
 		c.JSON(http.StatusBadRequest, errors.NewResponseError(http.StatusBadRequest, err.Error()))
 		return
 	}
-
+	
 	objectId, err := primitive.ObjectIDFromHex(request.ID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, errors.NewResponseError(http.StatusInternalServerError, err.Error()))
@@ -138,9 +141,6 @@ func (h *StudentHandler) UpdateStudent(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, errors.NewResponseError(http.StatusInternalServerError, err.Error()))
 		return
 	}
-
-	// log.Printf(request.Student.Name)
-
 	response := errors.NewResponseData(http.StatusOK, "Student updated successfully", request.Student)
 	c.JSON(http.StatusOK, response)
 }

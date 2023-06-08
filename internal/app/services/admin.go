@@ -58,12 +58,7 @@ func (s *AdminService) Login(username, password string) (*models.Admin, string, 
 		return nil, "", errors.New("admin not found")
 	}
 
-
-	fmt.Println("Password Hash Dari Database :", admin.Password)
-	fmt.Println("Password :", password)
-
 	if err := bcrypt.CompareHashAndPassword([]byte(admin.Password), []byte(password)); err != nil {
-		fmt.Println("Error comparing passwords:", err)
 		return nil, "", errors.New("invalid password")
 	}
 
