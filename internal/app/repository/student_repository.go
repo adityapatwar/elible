@@ -237,6 +237,7 @@ func (r *StudentRepository) FindByUsername(username string) (*models.Student, er
 
 func (r *StudentRepository) AddService(studentID primitive.ObjectID, service *models.TrackRecord) error {
 	studentCollection := r.MongoClient.Database(r.cfg.MongoDBName).Collection("tb_students")
+	serviceCollection := r.MongoClient.Database(r.cfg.MongoDBName).Collection("tb_service_student")
 	ctx := context.Background()
 
 	// Find the student by ID
@@ -249,23 +250,11 @@ func (r *StudentRepository) AddService(studentID primitive.ObjectID, service *mo
 		return err
 	}
 
-	// Check if service already exists in track_records
-	for _, record := range student.TrackRecords {
-		if record.ServiceName == service.ServiceName {
-			return errors.New("this service already exists")
-		}
-	}
-
 	// Use Jakarta's time zone
 	location, _ := time.LoadLocation("Asia/Jakarta")
 
-	// Update the service's UpdatedAt field
+	service.CreatedAt = time.Now().In(location)
 	service.UpdatedAt = time.Now().In(location)
-
-	// If ServiceDate is zero value, set it to current time
-	if service.ServiceDate.IsZero() {
-		service.ServiceDate = time.Now().In(location)
-	}
 
 	update := bson.M{
 		"$push": bson.M{
@@ -282,7 +271,130 @@ func (r *StudentRepository) AddService(studentID primitive.ObjectID, service *mo
 		return err
 	}
 
+	// Also update this service in tb_service_student collection
+	serviceInStudent := models.Student{
+		ID:   student.ID,
+		Name: student.Name,
+		TrackRecords: []models.TrackRecord{
+			*service,
+		},
+	}
+
+	// Check if student already has a service record
+	var existingService models.Student
+	err = serviceCollection.FindOne(ctx, bson.M{"_id": studentID}).Decode(&existingService)
+
+	if err == nil {
+		// If record exists, update it
+		update := bson.M{
+			"$push": bson.M{
+				"track_records": service,
+			},
+			"$set": bson.M{
+				"updated_at": time.Now().In(location),
+			},
+		}
+
+		_, err = serviceCollection.UpdateOne(ctx, bson.M{"_id": studentID}, update)
+
+		if err != nil {
+			return err
+		}
+	} else if err == mongo.ErrNoDocuments {
+		// If no record exists, insert a new one
+		_, err = serviceCollection.InsertOne(ctx, serviceInStudent)
+
+		if err != nil {
+			return err
+		}
+	} else {
+		// Handle other errors from FindOne
+		return err
+	}
+
+	r.EnsureServiceIndex()
+
 	return nil
+}
+
+func (r *StudentRepository) EnsureServiceIndex() error {
+	serviceCollection := r.MongoClient.Database(r.cfg.MongoDBName).Collection("tb_service_student")
+	ctx := context.Background()
+
+	// Check if index already exists
+	cursor, err := serviceCollection.Indexes().List(ctx)
+	if err != nil {
+		return err
+	}
+	defer cursor.Close(ctx)
+
+	// Iterate through the returned cursor
+	indexExists := false
+	for cursor.Next(ctx) {
+		var index bson.M
+		if err := cursor.Decode(&index); err != nil {
+			return err
+		}
+
+		// If "SearchIndex" exists, set flag to true
+		if index["name"] == "SearchIndex" {
+			indexExists = true
+			break
+		}
+	}
+
+	// Only create index if it doesn't exist
+	if !indexExists {
+		indexModel := mongo.IndexModel{
+			Keys: bson.D{
+				{Key: "name", Value: "text"},
+				{Key: "track_records.service_name", Value: "text"},
+				{Key: "track_records.service_date", Value: "text"},
+				{Key: "track_records.status", Value: "text"},
+			},
+			Options: options.Index().SetName("SearchIndex"),
+		}
+
+		_, err = serviceCollection.Indexes().CreateOne(ctx, indexModel)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (r *StudentRepository) FilterServices(filter models.ServiceFilter) ([]models.Student, error) {
+	serviceCollection := r.MongoClient.Database(r.cfg.MongoDBName).Collection("tb_service_student")
+	ctx := context.Background()
+
+	// Build filter query
+	query := bson.M{}
+	if filter.Name != nil {
+		query["name"] = bson.M{"$regex": filter.Name, "$options": "i"} // case insensitive search
+	}
+	if filter.ServiceName != nil {
+		query["track_records.service_name"] = bson.M{"$regex": filter.ServiceName, "$options": "i"}
+	}
+	if filter.ServiceDate != nil {
+		query["track_records.service_date"] = bson.M{"$regex": filter.ServiceDate, "$options": "i"}
+	}
+	if filter.Status != nil {
+		query["track_records.status"] = bson.M{"$regex": filter.Status, "$options": "i"}
+	}
+
+	cursor, err := serviceCollection.Find(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+
+	var services []models.Student
+	if err := cursor.All(ctx, &services); err != nil {
+		return nil, err
+	}
+
+	return services, nil
 }
 
 func (r *StudentRepository) AddLobby(studentID primitive.ObjectID, lobby *models.Student) error {
@@ -300,11 +412,11 @@ func (r *StudentRepository) AddLobby(studentID primitive.ObjectID, lobby *models
 	}
 
 	// Check if service already exists in track_records
-	for _, record := range student.TrackLobby {
-		if record.Progress == lobby.Progress {
-			return errors.New("this proggress already exists")
-		}
-	}
+	// for _, record := range student.TrackLobby {
+	// 	if record.Progress == lobby.Progress {
+	// 		return errors.New("this proggress already exists")
+	// 	}
+	// }
 
 	// Use Jakarta's time zone
 	location, _ := time.LoadLocation("Asia/Jakarta")
