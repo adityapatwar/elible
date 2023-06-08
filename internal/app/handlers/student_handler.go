@@ -2,7 +2,6 @@
 package handlers
 
 import (
-	"fmt"
 	"net/http"
 
 	"elible/internal/app/models"
@@ -125,12 +124,11 @@ func (h *StudentHandler) DeactivateStudent(c *gin.Context) {
 func (h *StudentHandler) UpdateStudent(c *gin.Context) {
 	var request UpdateStudentRequest
 
-
 	if err := c.ShouldBind(&request); err != nil {
 		c.JSON(http.StatusBadRequest, errors.NewResponseError(http.StatusBadRequest, err.Error()))
 		return
 	}
-	
+
 	objectId, err := primitive.ObjectIDFromHex(request.ID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, errors.NewResponseError(http.StatusInternalServerError, err.Error()))
