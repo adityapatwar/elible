@@ -205,7 +205,8 @@ func (h *StudentHandler) uploadImage(c *gin.Context) {
 
 	newFilename := fmt.Sprintf("%d_%s", rand.Int(), time.Now().Format("20060102"))
 	ext := filepath.Ext(file.Filename)
-	newFilenameWithExt := path.Join("images", newFilename+ext) // add "images" to the path
+	newFilenameWithExt := newFilename + ext
+	newFilenameWithExtDomain := path.Join("images", newFilename+ext)
 	dst := filepath.Join(dir, newFilenameWithExt)
 
 	if err := c.SaveUploadedFile(file, dst); err != nil {
@@ -213,7 +214,7 @@ func (h *StudentHandler) uploadImage(c *gin.Context) {
 		return
 	}
 
-	if err := os.Chmod(dst, 0444); err != nil {
+	if err := os.Chmod(dst, 0644); err != nil {
 		c.JSON(http.StatusInternalServerError, errors.NewResponseError(http.StatusInternalServerError, err.Error()))
 		return
 	}
@@ -224,7 +225,7 @@ func (h *StudentHandler) uploadImage(c *gin.Context) {
 		return
 	}
 
-	fullPath := path.Join(domain, newFilenameWithExt)
+	fullPath := path.Join(domain, newFilenameWithExtDomain)
 
 	response := errors.NewResponseData(http.StatusCreated, "Upload Image Success ", fullPath)
 	c.JSON(http.StatusCreated, response)
