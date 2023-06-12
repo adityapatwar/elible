@@ -3,7 +3,6 @@ package handlers
 
 import (
 	"fmt"
-	"math/rand"
 	"net/http"
 	"os"
 	"path"
@@ -189,9 +188,25 @@ func (h *StudentHandler) uploadImage(c *gin.Context) {
 		return
 	}
 
+	formType := c.PostForm("type")
+	if formType == "" {
+		c.JSON(http.StatusBadRequest, errors.NewResponseError(http.StatusBadRequest, "Form type is not set"))
+		return
+	}
+
 	dir := os.Getenv("IMAGE_DIR")
 	if dir == "" {
 		c.JSON(http.StatusInternalServerError, errors.NewResponseError(http.StatusInternalServerError, "IMAGE_DIR environment variable is not set"))
+		return
+	}
+
+	switch formType {
+	case "profile":
+		dir = path.Join(dir, "profile")
+	case "asset":
+		dir = path.Join(dir, "asset")
+	default:
+		c.JSON(http.StatusBadRequest, errors.NewResponseError(http.StatusBadRequest, "Invalid form type"))
 		return
 	}
 
@@ -203,10 +218,15 @@ func (h *StudentHandler) uploadImage(c *gin.Context) {
 		}
 	}
 
-	newFilename := fmt.Sprintf("%d_%s", rand.Int(), time.Now().Format("20060102"))
+	newFilename, err := utils.RandomString(10) // Generate a 10-character long random string
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, errors.NewResponseError(http.StatusInternalServerError, "Failed to generate a random string for the filename"))
+		return
+	}
+	newFilename = fmt.Sprintf("%s_%s", newFilename, time.Now().Format("20060102"))
 	ext := filepath.Ext(file.Filename)
 	newFilenameWithExt := newFilename + ext
-	newFilenameWithExtDomain := path.Join("images", newFilename+ext)
+	newFilenameWithExtDomain := path.Join("images", formType, newFilenameWithExt)
 	dst := filepath.Join(dir, newFilenameWithExt)
 
 	if err := c.SaveUploadedFile(file, dst); err != nil {
