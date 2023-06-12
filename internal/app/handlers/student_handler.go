@@ -2,9 +2,14 @@
 package handlers
 
 import (
+	"fmt"
+	"math/rand"
 	"net/http"
 	"os"
+	"path"
 	"path/filepath"
+	"strings"
+	"time"
 
 	"elible/internal/app/models"
 	"elible/internal/app/services"
@@ -191,6 +196,10 @@ func (h *StudentHandler) uploadImage(c *gin.Context) {
 		return
 	}
 
+	if !strings.HasSuffix(dir, "/") {
+		dir = dir + "/"
+	}
+
 	if _, err := os.Stat(dir); os.IsNotExist(err) {
 		err = os.MkdirAll(dir, 0755)
 		if err != nil {
@@ -199,7 +208,12 @@ func (h *StudentHandler) uploadImage(c *gin.Context) {
 		}
 	}
 
-	dst := dir + filepath.Base(file.Filename)
+	// Generate a random file name
+	rand.Seed(time.Now().UnixNano())
+	newFilename := fmt.Sprintf("%d_%s", rand.Int(), time.Now().Format("20060102"))
+	ext := filepath.Ext(file.Filename)
+	newFilenameWithExt := newFilename + ext
+	dst := filepath.Join(dir, newFilenameWithExt)
 
 	if err := c.SaveUploadedFile(file, dst); err != nil {
 		c.JSON(http.StatusInternalServerError, errors.NewResponseError(http.StatusInternalServerError, err.Error()))
@@ -212,6 +226,25 @@ func (h *StudentHandler) uploadImage(c *gin.Context) {
 		return
 	}
 
-	response := errors.NewResponseData(http.StatusCreated, "Upload Image Success ", dst)
+	// Prepend the domain to the file path
+	domain := os.Getenv("WEB_DOMAIN")
+	if domain == "" {
+		c.JSON(http.StatusInternalServerError, errors.NewResponseError(http.StatusInternalServerError, "WEB_DOMAIN environment variable is not set"))
+		return
+	}
+	fullPath := path.Join(domain, newFilenameWithExt)
+
+	response := errors.NewResponseData(http.StatusCreated, "Upload Image Success ", fullPath)
 	c.JSON(http.StatusCreated, response)
+}
+
+func (h *StudentHandler) ActivateStudnetAll(c *gin.Context) {
+
+	if err := h.service.ActivateStudnetAll(); err != nil {
+		c.JSON(http.StatusInternalServerError, errors.NewResponseError(http.StatusInternalServerError, err.Error()))
+		return
+	}
+
+	response := errors.NewResponseData(http.StatusOK, "Activate All Student Successfully", nil)
+	c.JSON(http.StatusOK, response)
 }

@@ -43,7 +43,7 @@ func (s *StudentService) GetAll(filter *models.StudentFilter) ([]*models.Student
 func (s *StudentService) GetByID(studentID string) (*models.Student, error) {
 	objectId, err := primitive.ObjectIDFromHex(studentID)
 	if err != nil {
-		return nil,err
+		return nil, err
 	}
 	return s.repo.GetByID(objectId)
 }
@@ -86,4 +86,8 @@ func (s *StudentService) AddLobby(studentID string, lobby *models.Student) error
 		return err
 	}
 	return s.repo.AddLobby(objectId, lobby)
+}
+
+func (s *StudentService) ActivateStudnetAll() error {
+	return s.repo.ActivateAll()
 }

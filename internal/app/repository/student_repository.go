@@ -86,10 +86,32 @@ func (r *StudentRepository) Create(student *models.Student) error {
 	// set created_at and updated_at fields
 	student.CreatedAt = time.Now().In(location)
 	student.UpdatedAt = time.Now().In(location)
+	student.IsActive = true
 
 	_, err = studentCollection.InsertOne(ctx, student)
 	if err != nil {
 		// log.Printf("Error while inserting new student into db, Reason: %v\n", err)
+		return err
+	}
+
+	return nil
+}
+
+func (r *StudentRepository) Update(studentID primitive.ObjectID, student *models.Student) error {
+	studentCollection := r.MongoClient.Database(r.cfg.MongoDBName).Collection("tb_students")
+	ctx := context.Background()
+	// Use Jakarta's time zone
+	location, _ := time.LoadLocation("Asia/Jakarta")
+	// update the updated_at field
+	student.UpdatedAt = time.Now().In(location)
+
+	update := bson.M{
+		"$set": student,
+	}
+
+	_, err := studentCollection.UpdateOne(ctx, bson.M{"_id": studentID}, update)
+
+	if err != nil {
 		return err
 	}
 
@@ -136,9 +158,14 @@ func (r *StudentRepository) GetAll(filter *models.StudentFilter) ([]*models.Stud
 			bsonFilter["category"] = *filter.Category
 		}
 		if filter.IsActive != nil {
-			// strict match for category
+			// strict match for is_active
 			bsonFilter["is_active"] = *filter.IsActive
 		}
+		if filter.Birthdate != nil && *filter.Birthdate != "" {
+			// flexible match for birthdate
+			bsonFilter["birthdate"] = bson.M{"$regex": primitive.Regex{Pattern: *filter.Birthdate, Options: "i"}}
+		}
+
 	}
 
 	cursor, err := studentCollection.Find(ctx, bsonFilter)
@@ -193,27 +220,6 @@ func (r *StudentRepository) Deactivate(studentID primitive.ObjectID) error {
 	ctx := context.Background()
 
 	_, err := studentCollection.UpdateOne(ctx, bson.M{"_id": studentID}, bson.M{"$set": bson.M{"is_active": false, "updated_at": time.Now()}})
-
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (r *StudentRepository) Update(studentID primitive.ObjectID, student *models.Student) error {
-	studentCollection := r.MongoClient.Database(r.cfg.MongoDBName).Collection("tb_students")
-	ctx := context.Background()
-	// Use Jakarta's time zone
-	location, _ := time.LoadLocation("Asia/Jakarta")
-	// update the updated_at field
-	student.UpdatedAt = time.Now().In(location)
-
-	update := bson.M{
-		"$set": student,
-	}
-
-	_, err := studentCollection.UpdateOne(ctx, bson.M{"_id": studentID}, update)
 
 	if err != nil {
 		return err
@@ -500,6 +506,19 @@ func (r *StudentRepository) AddLobby(studentID primitive.ObjectID, lobby *models
 	}
 
 	_, err = studentCollection.UpdateOne(ctx, bson.M{"_id": studentID}, update)
+
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (r *StudentRepository) ActivateAll() error {
+	studentCollection := r.MongoClient.Database(r.cfg.MongoDBName).Collection("tb_students")
+	ctx := context.Background()
+
+	_, err := studentCollection.UpdateMany(ctx, bson.M{"is_active": bson.M{"$ne": true}}, bson.M{"$set": bson.M{"is_active": true, "updated_at": time.Now()}})
 
 	if err != nil {
 		return err
