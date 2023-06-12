@@ -33,11 +33,11 @@ func main() {
 	router := gin.Default()
 	router.Use(corsMiddleware(), rateLimitMiddleware(), cspMiddleware())
 
-	// dir := os.Getenv("IMAGE_DIR")
-	// if dir == "" {
-	// 	log.Fatalf("IMAGE_DIR environment variable is not set")
-	// }
-	// router.Static("/images", dir) // Serve static files from the IMAGE_DIR
+	dir := os.Getenv("IMAGE_DIR")
+	if dir == "" {
+		log.Fatalf("IMAGE_DIR environment variable is not set")
+	}
+	router.Static("/images", dir) // Serve static files from the IMAGE_DIR
 
 	handlers.Routes(router, cfg, deps)
 

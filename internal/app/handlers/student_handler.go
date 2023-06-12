@@ -8,7 +8,6 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"strings"
 	"time"
 
 	"elible/internal/app/models"
@@ -181,7 +180,7 @@ func (h *StudentHandler) AddLobbyProgressToStudent(c *gin.Context) {
 func (h *StudentHandler) uploadImage(c *gin.Context) {
 	file, err := c.FormFile("image")
 	if err != nil {
-		c.JSON(http.StatusBadRequest, errors.NewResponseError(http.StatusBadRequest, err.Error()))
+		c.JSON(http.StatusBadRequest, errors.NewResponseError(http.StatusBadRequest, "File is not present in the form data"))
 		return
 	}
 
@@ -196,10 +195,6 @@ func (h *StudentHandler) uploadImage(c *gin.Context) {
 		return
 	}
 
-	if !strings.HasSuffix(dir, "/") {
-		dir = dir + "/"
-	}
-
 	if _, err := os.Stat(dir); os.IsNotExist(err) {
 		err = os.MkdirAll(dir, 0755)
 		if err != nil {
@@ -208,8 +203,6 @@ func (h *StudentHandler) uploadImage(c *gin.Context) {
 		}
 	}
 
-	// Generate a random file name
-	rand.Seed(time.Now().UnixNano())
 	newFilename := fmt.Sprintf("%d_%s", rand.Int(), time.Now().Format("20060102"))
 	ext := filepath.Ext(file.Filename)
 	newFilenameWithExt := newFilename + ext
@@ -220,18 +213,17 @@ func (h *StudentHandler) uploadImage(c *gin.Context) {
 		return
 	}
 
-	// Setting the file permission to readonly for all users (read and execute for owner)
 	if err := os.Chmod(dst, 0444); err != nil {
 		c.JSON(http.StatusInternalServerError, errors.NewResponseError(http.StatusInternalServerError, err.Error()))
 		return
 	}
 
-	// Prepend the domain to the file path
 	domain := os.Getenv("WEB_DOMAIN")
 	if domain == "" {
 		c.JSON(http.StatusInternalServerError, errors.NewResponseError(http.StatusInternalServerError, "WEB_DOMAIN environment variable is not set"))
 		return
 	}
+
 	fullPath := path.Join(domain, newFilenameWithExt)
 
 	response := errors.NewResponseData(http.StatusCreated, "Upload Image Success ", fullPath)
