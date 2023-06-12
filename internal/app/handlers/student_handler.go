@@ -205,7 +205,7 @@ func (h *StudentHandler) uploadImage(c *gin.Context) {
 
 	newFilename := fmt.Sprintf("%d_%s", rand.Int(), time.Now().Format("20060102"))
 	ext := filepath.Ext(file.Filename)
-	newFilenameWithExt := newFilename + ext
+	newFilenameWithExt := path.Join("images", newFilename+ext) // add "images" to the path
 	dst := filepath.Join(dir, newFilenameWithExt)
 
 	if err := c.SaveUploadedFile(file, dst); err != nil {
