@@ -2,9 +2,13 @@
 package handlers
 
 import (
+	"fmt"
+	"math/rand"
 	"net/http"
 	"os"
+	"path"
 	"path/filepath"
+	"time"
 
 	"elible/internal/app/models"
 	"elible/internal/app/services"
@@ -176,7 +180,7 @@ func (h *StudentHandler) AddLobbyProgressToStudent(c *gin.Context) {
 func (h *StudentHandler) uploadImage(c *gin.Context) {
 	file, err := c.FormFile("image")
 	if err != nil {
-		c.JSON(http.StatusBadRequest, errors.NewResponseError(http.StatusBadRequest, err.Error()))
+		c.JSON(http.StatusBadRequest, errors.NewResponseError(http.StatusBadRequest, "File is not present in the form data"))
 		return
 	}
 
@@ -199,19 +203,40 @@ func (h *StudentHandler) uploadImage(c *gin.Context) {
 		}
 	}
 
-	dst := dir + filepath.Base(file.Filename)
+	newFilename := fmt.Sprintf("%d_%s", rand.Int(), time.Now().Format("20060102"))
+	ext := filepath.Ext(file.Filename)
+	newFilenameWithExt := newFilename + ext
+	dst := filepath.Join(dir, newFilenameWithExt)
 
 	if err := c.SaveUploadedFile(file, dst); err != nil {
 		c.JSON(http.StatusInternalServerError, errors.NewResponseError(http.StatusInternalServerError, err.Error()))
 		return
 	}
 
-	// Setting the file permission to readonly for all users (read and execute for owner)
 	if err := os.Chmod(dst, 0444); err != nil {
 		c.JSON(http.StatusInternalServerError, errors.NewResponseError(http.StatusInternalServerError, err.Error()))
 		return
 	}
 
-	response := errors.NewResponseData(http.StatusCreated, "Upload Image Success ", dst)
+	domain := os.Getenv("WEB_DOMAIN")
+	if domain == "" {
+		c.JSON(http.StatusInternalServerError, errors.NewResponseError(http.StatusInternalServerError, "WEB_DOMAIN environment variable is not set"))
+		return
+	}
+
+	fullPath := path.Join(domain, newFilenameWithExt)
+
+	response := errors.NewResponseData(http.StatusCreated, "Upload Image Success ", fullPath)
 	c.JSON(http.StatusCreated, response)
+}
+
+func (h *StudentHandler) ActivateStudnetAll(c *gin.Context) {
+
+	if err := h.service.ActivateStudnetAll(); err != nil {
+		c.JSON(http.StatusInternalServerError, errors.NewResponseError(http.StatusInternalServerError, err.Error()))
+		return
+	}
+
+	response := errors.NewResponseData(http.StatusOK, "Activate All Student Successfully", nil)
+	c.JSON(http.StatusOK, response)
 }

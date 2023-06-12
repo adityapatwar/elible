@@ -48,10 +48,12 @@ func Routes(router *gin.Engine, cfg *config.Config, deps *internal.Dependencies)
 		studentGroup.POST("/all", middleware.AdminMiddleware(cfg, deps.AdminService, false, true, studentHandler.GetAllStudents))
 		studentGroup.POST("/id", middleware.AdminMiddleware(cfg, deps.AdminService, false, true, studentHandler.GetIdStudents))
 		studentGroup.POST("/delete", middleware.AdminMiddleware(cfg, deps.AdminService, false, true, studentHandler.DeleteStudent))
+		studentGroup.POST("/deactivate", middleware.AdminMiddleware(cfg, deps.AdminService, false, true, studentHandler.DeactivateStudent))
 		studentGroup.POST("/update", middleware.AdminMiddleware(cfg, deps.AdminService, false, true, studentHandler.UpdateStudent))
 		studentGroup.POST("/add-service", middleware.AdminMiddleware(cfg, deps.AdminService, false, true, studentHandler.AddServiceToStudent))
 		studentGroup.POST("/add-lobby", middleware.AdminMiddleware(cfg, deps.AdminService, false, true, studentHandler.AddLobbyProgressToStudent))
 		studentGroup.POST("/upload", middleware.AdminMiddleware(cfg, deps.AdminService, false, true, studentHandler.uploadImage))
+		studentGroup.POST("/activated-all", middleware.AdminMiddleware(cfg, deps.AdminService, false, true, studentHandler.ActivateStudnetAll))
 	}
 
 	universityGroup := router.Group("/university")
