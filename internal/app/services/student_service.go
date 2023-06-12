@@ -1,4 +1,3 @@
-// internal/app/services/student_service.go
 package services
 
 import (

@@ -21,6 +21,7 @@ type StudentRepository struct {
 }
 
 func NewStudentRepository(cfg *config.Config, mongoClient *mongo.Client) *StudentRepository {
+
 	return &StudentRepository{
 		cfg:         cfg,
 		MongoClient: mongoClient,
@@ -133,6 +134,10 @@ func (r *StudentRepository) GetAll(filter *models.StudentFilter) ([]*models.Stud
 		if filter.Category != nil && *filter.Category != "" {
 			// strict match for category
 			bsonFilter["category"] = *filter.Category
+		}
+		if filter.IsActive != nil {
+			// strict match for category
+			bsonFilter["is_active"] = *filter.IsActive
 		}
 	}
 
@@ -250,6 +255,12 @@ func (r *StudentRepository) AddService(studentID primitive.ObjectID, service *mo
 		return err
 	}
 
+	for _, existingService := range student.TrackRecords {
+		if existingService.ServiceName == service.ServiceName {
+			return errors.New("service already exists")
+		}
+	}
+
 	// Use Jakarta's time zone
 	location, _ := time.LoadLocation("Asia/Jakarta")
 
@@ -273,7 +284,7 @@ func (r *StudentRepository) AddService(studentID primitive.ObjectID, service *mo
 
 	// Also update this service in tb_service_student collection
 	serviceInStudent := models.Student{
-		ID:   student.ID,
+		ID:   studentID,
 		Name: student.Name,
 		TrackRecords: []models.TrackRecord{
 			*service,
@@ -313,6 +324,60 @@ func (r *StudentRepository) AddService(studentID primitive.ObjectID, service *mo
 	}
 
 	r.EnsureServiceIndex()
+
+	return nil
+}
+
+func (r *StudentRepository) UpdateService(studentID primitive.ObjectID, oldServiceName string, newService *models.TrackRecord) error {
+	serviceCollection := r.MongoClient.Database(r.cfg.MongoDBName).Collection("tb_service_student")
+	studentCollection := r.MongoClient.Database(r.cfg.MongoDBName).Collection("tb_students")
+	ctx := context.Background()
+
+	filter := bson.M{
+		"_id":                        studentID,
+		"track_records.service_name": oldServiceName,
+	}
+
+	update := bson.M{
+		"$set": bson.M{
+			"track_records.$": newService,
+		},
+	}
+
+	_, err := serviceCollection.UpdateOne(ctx, filter, update)
+	if err != nil {
+		return err
+	}
+
+	_, err = studentCollection.UpdateOne(ctx, filter, update)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (r *StudentRepository) DeleteService(studentID primitive.ObjectID, serviceName string) error {
+	serviceCollection := r.MongoClient.Database(r.cfg.MongoDBName).Collection("tb_service_student")
+	studentCollection := r.MongoClient.Database(r.cfg.MongoDBName).Collection("tb_students")
+	ctx := context.Background()
+
+	filter := bson.M{"_id": studentID}
+	update := bson.M{
+		"$pull": bson.M{
+			"track_records": bson.M{"service_name": serviceName},
+		},
+	}
+
+	_, err := serviceCollection.UpdateOne(ctx, filter, update)
+	if err != nil {
+		return err
+	}
+
+	_, err = studentCollection.UpdateOne(ctx, filter, update)
+	if err != nil {
+		return err
+	}
 
 	return nil
 }

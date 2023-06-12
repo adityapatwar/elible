@@ -34,4 +34,5 @@ type StudentFilter struct {
 	FinancialAbility *string `bson:"financial_ability,omitempty" json:"financial_ability,omitempty"`
 	Progress         *string `bson:"progress,omitempty" json:"progress,omitempty"`
 	Category         *string `bson:"category,omitempty" json:"category,omitempty"`
+	IsActive         *bool   `bson:"is_active,omitempty" json:"is_active,omitempty"`
 }

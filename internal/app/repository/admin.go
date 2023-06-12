@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"log"
 
 	"elible/internal/app/models"
 	"elible/internal/config"
@@ -61,7 +62,7 @@ func (r *AdminRepository) SaveToken(td *models.Token) error {
 	// Delete any existing token associated with the same access_uuid
 	_, err := TokenCollection.DeleteOne(ctx, bson.M{"accessUUID": td.AccessUUID})
 	if err != nil {
-		// log.Printf("Error while deleting old token from db, Reason: %v\n", err)
+		log.Printf("Error while deleting old token from db, Reason: %v\n", err)
 		// You might want to handle this error, instead of just logging
 	}
 
@@ -120,7 +121,6 @@ func (r *AdminRepository) GetAdminByToken(tokens string) (*models.Admin, error) 
 	AdminCollection := r.MongoClient.Database(r.cfg.MongoDBName).Collection("tb_admins")
 	TokenCollection := r.MongoClient.Database(r.cfg.MongoDBName).Collection("tb_tokens")
 	ctx := context.Background()
-
 
 	var token models.Token
 	err := TokenCollection.FindOne(ctx, bson.M{"accessToken": tokens}).Decode(&token)
