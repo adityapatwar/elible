@@ -25,25 +25,6 @@ func NewStudentHandler(service *services.StudentService) *StudentHandler {
 	}
 }
 
-type RequestWithID struct {
-	ID string `json:"id" binding:"required"`
-}
-
-type UpdateStudentRequest struct {
-	ID      string         `json:"id" binding:"required"`
-	Student models.Student `json:"student"`
-}
-
-type AddServiceRequest struct {
-	ID      string             `json:"id" binding:"required"`
-	Service models.TrackRecord `json:"service" binding:"required"`
-}
-
-type AddLobbyRequest struct {
-	ID    string         `json:"id" binding:"required"`
-	Lobby models.Student `json:"lobby" binding:"required"`
-}
-
 func (h *StudentHandler) RegisterStudent(c *gin.Context) {
 	var student models.Student
 	if err := c.ShouldBind(&student); err != nil {
