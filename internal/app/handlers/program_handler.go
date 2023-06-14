@@ -2,7 +2,10 @@ package handlers
 
 import (
 	"net/http"
+	"os"
+	"path"
 
+	"elible/internal/app/models"
 	"elible/internal/app/services"
 	errors "elible/internal/pkg"
 
@@ -96,18 +99,52 @@ func (h *StudyProgramHandler) GetStudyProgram(c *gin.Context) {
 }
 
 func (h *StudyProgramHandler) GetStudyPrograms(c *gin.Context) {
-	var request GetProgramRequest
-	if err := c.ShouldBindJSON(&request); err != nil {
+	var filter models.GetStudyProgramsFilter
+	if err := c.ShouldBind(&filter); err != nil {
 		c.JSON(http.StatusBadRequest, errors.NewResponseError(http.StatusBadRequest, err.Error()))
 		return
 	}
 
-	programs, err := h.service.GetStudyPrograms(request.KbYear, request.KpName)
+	programs, err := h.service.GetStudyPrograms(&filter)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, errors.NewResponseError(http.StatusInternalServerError, err.Error()))
 		return
 	}
 
 	response := errors.NewResponseData(http.StatusOK, "Fetched study programs successfully", programs)
+	c.JSON(http.StatusOK, response)
+}
+
+func (h *StudyProgramHandler) UploadAndImportData(c *gin.Context) {
+	// I assume that you use 'file' as the field name in your form
+	file, err := c.FormFile("file")
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	// You can change the destination path as you wish
+	dst := path.Join("./tempFile", file.Filename)
+	if err := c.SaveUploadedFile(file, dst); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Always delete the file after we're done
+	defer os.Remove(dst)
+
+	// Get knowledgeBaseYear and knowledgeProgramName from the form data
+	knowledgeBaseYear := c.PostForm("knowledgeBaseYear")
+	knowledgeProgramName := c.PostForm("knowledgeProgramName")
+
+	// Import data from the uploaded Excel file
+	err = h.service.ImportDataFromExcelStudyPrograms(knowledgeBaseYear, knowledgeProgramName, dst)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, errors.NewResponseError(http.StatusInternalServerError, err.Error()))
+		return
+	}
+
+	// Respond to the client
+	response := errors.NewResponseData(http.StatusOK, "Data imported successfully", nil)
 	c.JSON(http.StatusOK, response)
 }

@@ -54,8 +54,10 @@ type UpdateProgramRequest struct {
 }
 
 type GetProgramRequest struct {
-	KbYear string `json:"kbYear" binding:"required"`
-	KpName string `json:"kpName" binding:"required"`
+	KbYear   string `json:"kbYear" binding:"required"`
+	KpName   string `json:"kpName" binding:"required"`
+	Page     string `json:"page" binding:"required"`
+	PageSize string `json:"pageSize" binding:"required"`
 }
 
 type UpdateUniversityRequest struct {

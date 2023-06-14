@@ -72,6 +72,7 @@ func Routes(router *gin.Engine, cfg *config.Config, deps *internal.Dependencies)
 		studyProgramGroup.POST("/delete", middleware.AdminMiddleware(cfg, deps.AdminService, false, true, studyProgramHandler.DeleteStudyProgram))
 		studyProgramGroup.POST("/id", middleware.AdminMiddleware(cfg, deps.AdminService, false, true, studyProgramHandler.GetStudyProgram))
 		studyProgramGroup.POST("/all", middleware.AdminMiddleware(cfg, deps.AdminService, false, true, studyProgramHandler.GetStudyPrograms))
+		studyProgramGroup.POST("/upload", middleware.AdminMiddleware(cfg, deps.AdminService, false, true, studyProgramHandler.UploadAndImportData))
 	}
 
 	knowledgeBaseGroup := router.Group("/knowledge-base")

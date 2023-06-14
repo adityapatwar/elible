@@ -17,19 +17,19 @@ type KnowledgeBase struct {
 type KnowledgeProgram struct {
 	Name          string               `bson:"name,omitempty" json:"name,omitempty"`
 	DisplayName   string               `bson:"display_name,omitempty" json:"display_name,omitempty"`
-	StudyPrograms []primitive.ObjectID `bson:"study_programs,omitempty" json:"study_programs,omitempty"` // These are IDs of StudyProgram documents
+	StudyPrograms []primitive.ObjectID `bson:"study_programs,omitempty" json:"study_programs,omitempty"`
 }
 
 type StudyProgram struct {
 	ID             primitive.ObjectID `bson:"_id,omitempty" json:"id,omitempty"`
 	Name           string             `bson:"name,omitempty" json:"name,omitempty"`
-	ProgramDetails Program          `bson:"program_details,omitempty" json:"program_details,omitempty"`
+	ProgramDetails Program            `bson:"program_details,omitempty" json:"program_details,omitempty"`
 	CreatedAt      time.Time          `bson:"created_at,omitempty" json:"created_at,omitempty"`
 	UpdatedAt      time.Time          `bson:"updated_at,omitempty" json:"updated_at,omitempty"`
 }
 
 type Program struct {
-	University    primitive.ObjectID `bson:"university,omitempty" json:"university,omitempty"` // This is the ID of the University document
+	University    primitive.ObjectID `bson:"university,omitempty" json:"university,omitempty"`
 	Program       string             `bson:"program,omitempty" json:"program,omitempty"`
 	ProgramType   string             `bson:"program_type,omitempty" json:"program_type,omitempty"`
 	UKT           string             `bson:"ukt,omitempty" json:"ukt,omitempty"`
@@ -59,4 +59,26 @@ type ExamDates struct {
 type Article struct {
 	Title   string `bson:"title,omitempty" json:"title,omitempty"`
 	Content string `bson:"content,omitempty" json:"content,omitempty"`
+}
+
+type StudyProgramWithUniversity struct {
+	StudyProgram StudyProgram `bson:"study_program,omitempty" json:"study_program,omitempty"`
+	University   University   `bson:"university,omitempty" json:"university,omitempty"`
+}
+
+type PagedStudyPrograms struct {
+	CurrentPage  int
+	TotalRecords int64
+	TotalPages   int
+	Records      []StudyProgramWithUniversity
+}
+
+type GetStudyProgramsFilter struct {
+	KbYear      string `bson:"kbYear,omitempty" json:"kbYear,omitempty"`
+	KpName      string `bson:"kpName,omitempty" json:"kpName,omitempty"`
+	Page        int    `bson:"page,omitempty" json:"page,omitempty"`
+	PageSize    int    `bson:"pageSize,omitempty" json:"pageSize,omitempty"`
+	SearchQuery string `bson:"searchQuery,omitempty" json:"searchQuery,omitempty"`
+	ProgramType string `bson:"programType,omitempty" programType:"school,omitempty"`
+	Program     string `bson:"program,omitempty" json:"program,omitempty"`
 }
