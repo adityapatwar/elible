@@ -4,11 +4,19 @@ import (
 	"context"
 	"elible/internal/app/models"
 	"elible/internal/config"
+	"fmt"
+	"math"
+
+	"strings"
 	"time"
 
+	utils "elible/internal/app/utils"
+
+	"github.com/xuri/excelize/v2"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 type StudyProgramRepository struct {
@@ -55,7 +63,7 @@ func (r *StudyProgramRepository) CreateStudyProgram(sp models.StudyProgram, kbYe
 	return spID, nil
 }
 
-// UpdateStudyProgram updates a study program and removes it from all KnowledgeBases it belonged to
+// UpdateStudyProgram updates a study program
 func (r *StudyProgramRepository) UpdateStudyProgram(id primitive.ObjectID, sp models.StudyProgram) error {
 	ctx := context.Background()
 
@@ -66,14 +74,6 @@ func (r *StudyProgramRepository) UpdateStudyProgram(id primitive.ObjectID, sp mo
 	if err != nil {
 		return err
 	}
-
-	// Removing the updated study program from all KnowledgeBases it belonged to
-	KnowledgeBaseCollection := r.MongoClient.Database(r.cfg.MongoDBName).Collection("tb_knowledge_bases")
-	_, err = KnowledgeBaseCollection.UpdateMany(
-		ctx,
-		bson.M{"programs.study_programs": id},
-		bson.M{"$pull": bson.M{"programs.$.study_programs": id}},
-	)
 
 	return err
 }
@@ -115,13 +115,14 @@ func (r *StudyProgramRepository) GetStudyProgram(id primitive.ObjectID) (models.
 }
 
 // GetStudyPrograms retrieves all study programs from a specific KnowledgeProgram in a KnowledgeBase
-func (r *StudyProgramRepository) GetStudyPrograms(kbYear string, kpName string) ([]models.StudyProgram, error) {
+func (r *StudyProgramRepository) GetStudyPrograms(dataFilter *models.GetStudyProgramsFilter) (*models.PagedStudyPrograms, error) {
 	ctx := context.Background()
 
 	KnowledgeBaseCollection := r.MongoClient.Database(r.cfg.MongoDBName).Collection("tb_knowledge_bases")
+	UniversityCollection := r.MongoClient.Database(r.cfg.MongoDBName).Collection("tb_universities")
 
 	var kb models.KnowledgeBase
-	err := KnowledgeBaseCollection.FindOne(ctx, bson.M{"year": kbYear}).Decode(&kb)
+	err := KnowledgeBaseCollection.FindOne(ctx, bson.M{"year": dataFilter.KbYear}).Decode(&kb)
 	if err != nil {
 		return nil, err
 	}
@@ -129,7 +130,7 @@ func (r *StudyProgramRepository) GetStudyPrograms(kbYear string, kpName string) 
 	// Find the specified KnowledgeProgram
 	var kp models.KnowledgeProgram
 	for _, program := range kb.Programs {
-		if program.Name == kpName {
+		if program.Name == dataFilter.KpName {
 			kp = program
 			break
 		}
@@ -137,16 +138,241 @@ func (r *StudyProgramRepository) GetStudyPrograms(kbYear string, kpName string) 
 
 	StudyProgramCollection := r.MongoClient.Database(r.cfg.MongoDBName).Collection("tb_study_programs")
 
+	filter := bson.M{
+		"_id": bson.M{
+			"$in": kp.StudyPrograms,
+		},
+	}
+
+	if dataFilter.SearchQuery != "" {
+		filter["name"] = bson.M{
+			"$regex": primitive.Regex{
+				Pattern: dataFilter.SearchQuery,
+				Options: "i",
+			},
+		}
+	}
+
+	if dataFilter.ProgramType != "" {
+		filter["program_details.program_type"] = bson.M{
+			"$regex": primitive.Regex{
+				Pattern: dataFilter.ProgramType,
+				Options: "i",
+			},
+		}
+	}
+
+	if dataFilter.Program != "" {
+		filter["program_details.program"] = bson.M{
+			"$regex": primitive.Regex{
+				Pattern: dataFilter.Program,
+				Options: "i",
+			},
+		}
+	}
+
 	// Find all study programs of the KnowledgeProgram
-	var programs []models.StudyProgram
-	for _, spID := range kp.StudyPrograms {
+	var programs []models.StudyProgramWithUniversity
+	total, err := StudyProgramCollection.CountDocuments(ctx, filter)
+	if err != nil {
+		return nil, err
+	}
+
+	totalPages := int(math.Ceil(float64(total) / float64(dataFilter.PageSize)))
+
+	findOptions := options.Find().SetSkip(int64((dataFilter.Page - 1) * dataFilter.PageSize)).SetLimit(int64(dataFilter.PageSize))
+	cursor, err := StudyProgramCollection.Find(ctx, filter, findOptions)
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+
+	for cursor.Next(ctx) {
 		var sp models.StudyProgram
-		err = StudyProgramCollection.FindOne(ctx, bson.M{"_id": spID}).Decode(&sp)
+		err = cursor.Decode(&sp)
 		if err != nil {
 			return nil, err
 		}
-		programs = append(programs, sp)
+
+		// Get the university detail
+		var university models.University
+		err = UniversityCollection.FindOne(ctx, bson.M{"_id": sp.ProgramDetails.University}).Decode(&university)
+		if err != nil {
+			return nil, err
+		}
+
+		// Add the university to the struct
+		programWithUniversity := models.StudyProgramWithUniversity{StudyProgram: sp, University: university}
+		programs = append(programs, programWithUniversity)
 	}
 
-	return programs, nil
+	if err := cursor.Err(); err != nil {
+		return nil, err
+	}
+
+	return &models.PagedStudyPrograms{
+		CurrentPage:  dataFilter.Page,
+		TotalRecords: total,
+		TotalPages:   totalPages,
+		Records:      programs,
+	}, nil
+}
+
+func (r *StudyProgramRepository) ImportDataFromExcel(knowledgeBaseYear, knowledgeProgramName, filePath string) error {
+	// Load Excel file
+	f, err := excelize.OpenFile(filePath)
+	if err != nil {
+		return err
+	}
+
+	// Get all the rows in the Sheet1.
+	rows, err := f.GetRows("Sheet1")
+	if err != nil {
+		return err
+	}
+
+	ctx := context.Background()
+
+	// Choose the collections to work with
+	universityCollection := r.MongoClient.Database(r.cfg.MongoDBName).Collection("tb_universities")
+	studyProgramCollection := r.MongoClient.Database(r.cfg.MongoDBName).Collection("tb_study_programs")
+	knowledgeBaseCollection := r.MongoClient.Database(r.cfg.MongoDBName).Collection("tb_knowledge_bases")
+
+	// Iterate over the rows, starting from the second row
+	for i, row := range rows {
+		// Skip the header row
+		if i == 0 {
+			continue
+		}
+		// Create university if it does not exist
+		var university models.University
+		err := universityCollection.FindOne(ctx, bson.M{"name": row[2]}).Decode(&university)
+
+		if err != nil {
+			if err != mongo.ErrNoDocuments {
+				return err
+			}
+
+			// Ensure the row has the expected number of columns
+			if len(row) < 29 {
+				return fmt.Errorf("row %d has %d columns, expected 29", i+1, len(row))
+			}
+
+			// Create university because it does not exist
+			university = models.University{
+				Name:    row[2],
+				Alias:   row[3],
+				Address: row[4],
+				Website: row[5],
+				Logo:    row[6],
+				Image:   row[7],
+				Contact: models.Contact{
+					Email: row[8],
+					Phone: row[9],
+					Fax:   row[10],
+				},
+				SocialMedia: []models.SocialMedia{
+					{
+						Platform: row[11],
+						Link:     row[12],
+					},
+				},
+			}
+			university.ID = primitive.NewObjectID()
+			university.CreatedAt = time.Now()
+			university.UpdatedAt = time.Now()
+			_, err = universityCollection.InsertOne(ctx, university)
+			if err != nil {
+				return err
+			}
+		}
+
+		// Find or create the program
+		filter := bson.M{
+			"name":                       row[13],
+			"program_details.program":    row[14],
+			"program_details.university": university.ID,
+			// Add other fields as necessary
+		}
+
+		update := bson.M{
+			"$setOnInsert": bson.M{
+				"name": row[13],
+				"program_details": models.Program{
+					University:    university.ID,
+					Program:       row[14],
+					ProgramType:   row[15],
+					UKT:           row[16],
+					SPI:           row[17],
+					Capacity:      row[18],
+					IsPacketC:     row[19] == "yes",
+					Description:   row[20],
+					Advantages:    row[21],
+					Disadvantages: row[22],
+					Requirements:  strings.Split(row[23], ","),
+					Registration: models.RegistrationDates{
+						Start: utils.ParseDate(row[24]),
+						End:   utils.ParseDate(row[25]),
+					},
+					Exam: models.ExamDates{
+						Start: utils.ParseDate(row[26]),
+						End:   utils.ParseDate(row[27]),
+					},
+					Announcement: utils.ParseDate(row[28]),
+				},
+				"createdAt": time.Now(),
+			},
+			"$set": bson.M{
+				"updatedAt": time.Now(),
+			},
+		}
+
+		opts := options.Update().SetUpsert(true)
+
+		res, err := studyProgramCollection.UpdateOne(ctx, filter, update, opts)
+		if err != nil {
+			return err
+		}
+
+		var programID primitive.ObjectID
+		if res.UpsertedCount > 0 {
+			// New program was created
+			programID = res.UpsertedID.(primitive.ObjectID)
+		} else {
+			// Program already existed, get its ID
+			var existingProgram models.StudyProgram
+			err = studyProgramCollection.FindOne(ctx, filter).Decode(&existingProgram)
+			if err != nil {
+				return err
+			}
+			programID = existingProgram.ID
+		}
+
+		// Check if the program already exists in the specified KnowledgeProgram
+		var existingKnowledgeBase models.KnowledgeBase
+		err = knowledgeBaseCollection.FindOne(ctx, bson.M{
+			"year":                    knowledgeBaseYear,
+			"programs.name":           knowledgeProgramName,
+			"programs.study_programs": programID}).Decode(&existingKnowledgeBase)
+
+		if err != nil {
+			if err != mongo.ErrNoDocuments {
+				return err
+			}
+
+			// Program does not exist in the specified KnowledgeProgram, add it
+			_, err = knowledgeBaseCollection.UpdateOne(
+				ctx,
+				bson.M{"year": knowledgeBaseYear, "programs.name": knowledgeProgramName},
+				bson.M{"$push": bson.M{"programs.$.study_programs": programID}},
+			)
+			if err != nil {
+				return err
+			}
+		} else {
+			continue
+		}
+	}
+
+	return nil
 }

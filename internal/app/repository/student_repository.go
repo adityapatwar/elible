@@ -165,7 +165,6 @@ func (r *StudentRepository) GetAll(filter *models.StudentFilter) ([]*models.Stud
 			// flexible match for birthdate
 			bsonFilter["birthdate"] = bson.M{"$regex": primitive.Regex{Pattern: *filter.Birthdate, Options: "i"}}
 		}
-
 	}
 
 	cursor, err := studentCollection.Find(ctx, bsonFilter)
