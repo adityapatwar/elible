@@ -37,7 +37,7 @@ func (s *StudyProgramService) DeleteStudyProgram(id string) error {
 	return s.repo.DeleteStudyProgram(oid)
 }
 
-func (s *StudyProgramService) GetStudyProgram(id primitive.ObjectID) (models.StudyProgram, error) {
+func (s *StudyProgramService) GetStudyProgram(id primitive.ObjectID) (models.StudyProgramWithUniversity, error) {
 	return s.repo.GetStudyProgram(id)
 }
 

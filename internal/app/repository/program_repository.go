@@ -100,15 +100,35 @@ func (r *StudyProgramRepository) DeleteStudyProgram(id primitive.ObjectID) error
 }
 
 // GetStudyProgram retrieves a study program by its ID
-func (r *StudyProgramRepository) GetStudyProgram(id primitive.ObjectID) (models.StudyProgram, error) {
+func (r *StudyProgramRepository) GetStudyProgram(id primitive.ObjectID) (models.StudyProgramWithUniversity, error) {
 	ctx := context.Background()
 
 	StudyProgramCollection := r.MongoClient.Database(r.cfg.MongoDBName).Collection("tb_study_programs")
 
-	var sp models.StudyProgram
-	err := StudyProgramCollection.FindOne(ctx, bson.M{"_id": id}).Decode(&sp)
+	pipeline := []bson.M{
+		{"$match": bson.M{"_id": id}},
+		{"$lookup": bson.M{
+			"from":         "tb_universities", // adjust this to the actual university collection name
+			"localField":   "program_details.university",
+			"foreignField": "_id",
+			"as":           "university",
+		}},
+		{"$unwind": "$university"},
+		{"$project": bson.M{
+			"study_program": "$$ROOT",
+			"university":    1,
+		}},
+	}
+
+	var sp models.StudyProgramWithUniversity
+	cursor, err := StudyProgramCollection.Aggregate(ctx, pipeline)
 	if err != nil {
-		return models.StudyProgram{}, err
+		return models.StudyProgramWithUniversity{}, err
+	}
+
+	defer cursor.Close(ctx)
+	if cursor.Next(ctx) {
+		cursor.Decode(&sp)
 	}
 
 	return sp, nil
