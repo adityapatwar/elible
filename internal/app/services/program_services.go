@@ -44,6 +44,6 @@ func (s *StudyProgramService) GetStudyProgram(id primitive.ObjectID) (models.Stu
 func (s *StudyProgramService) GetStudyPrograms(dataFilter *models.GetStudyProgramsFilter) (*models.PagedStudyPrograms, error) {
 	return s.repo.GetStudyPrograms(dataFilter)
 }
-func (s *StudyProgramService) ImportDataFromExcelStudyPrograms(kbYear string, kpName string, filePath string) error {
+func (s *StudyProgramService) ImportDataFromExcelStudyPrograms(kbYear string, kpName string, filePath string) (*models.ImportResult, error) {
 	return s.repo.ImportDataFromExcel(kbYear, kpName, filePath)
 }

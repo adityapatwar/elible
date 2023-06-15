@@ -138,13 +138,13 @@ func (h *StudyProgramHandler) UploadAndImportData(c *gin.Context) {
 	knowledgeProgramName := c.PostForm("knowledgeProgramName")
 
 	// Import data from the uploaded Excel file
-	err = h.service.ImportDataFromExcelStudyPrograms(knowledgeBaseYear, knowledgeProgramName, dst)
+	stat, err := h.service.ImportDataFromExcelStudyPrograms(knowledgeBaseYear, knowledgeProgramName, dst)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, errors.NewResponseError(http.StatusInternalServerError, err.Error()))
 		return
 	}
 
 	// Respond to the client
-	response := errors.NewResponseData(http.StatusOK, "Data imported successfully", nil)
+	response := errors.NewResponseData(http.StatusOK, "Data imported successfully", stat)
 	c.JSON(http.StatusOK, response)
 }
