@@ -82,3 +82,15 @@ type GetStudyProgramsFilter struct {
 	ProgramType string `bson:"programType,omitempty" programType:"school,omitempty"`
 	Program     string `bson:"program,omitempty" json:"program,omitempty"`
 }
+
+type ImportResult struct {
+	UniversityStats OperationStats `json:"university_stats"`
+	ProgramStats    OperationStats `json:"program_stats"`
+}
+
+type OperationStats struct {
+	CreatedCount int   `json:"created_count"`
+	UpdatedCount int   `json:"updated_count"`
+	FailedCount  int   `json:"failed_count"`
+	FailedRows   []int `json:"failed_rows"`
+}

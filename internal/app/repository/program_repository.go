@@ -4,7 +4,6 @@ import (
 	"context"
 	"elible/internal/app/models"
 	"elible/internal/config"
-	"fmt"
 	"math"
 
 	"strings"
@@ -238,17 +237,21 @@ func (r *StudyProgramRepository) GetStudyPrograms(dataFilter *models.GetStudyPro
 	}, nil
 }
 
-func (r *StudyProgramRepository) ImportDataFromExcel(knowledgeBaseYear, knowledgeProgramName, filePath string) error {
+func (r *StudyProgramRepository) ImportDataFromExcel(knowledgeBaseYear, knowledgeProgramName, filePath string) (*models.ImportResult, error) {
+	// Define counters
+	var universityCreatedCount, universityUpdatedCount, universityFailedCount int
+	var programCreatedCount, programUpdatedCount, programFailedCount int
+	var universityFailedRows, programFailedRows []int
 	// Load Excel file
 	f, err := excelize.OpenFile(filePath)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// Get all the rows in the Sheet1.
 	rows, err := f.GetRows("Sheet1")
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	ctx := context.Background()
@@ -264,109 +267,180 @@ func (r *StudyProgramRepository) ImportDataFromExcel(knowledgeBaseYear, knowledg
 		if i == 0 {
 			continue
 		}
-		// Create university if it does not exist
-		var university models.University
-		err := universityCollection.FindOne(ctx, bson.M{"name": row[2]}).Decode(&university)
 
-		if err != nil {
-			if err != mongo.ErrNoDocuments {
-				return err
-			}
+		// Find the university
+		universityFilter := bson.M{"name": row[2]}
+		var existingUniversity models.University
+		err = universityCollection.FindOne(ctx, universityFilter).Decode(&existingUniversity)
 
-			// Ensure the row has the expected number of columns
-			if len(row) < 29 {
-				return fmt.Errorf("row %d has %d columns, expected 29", i+1, len(row))
-			}
+		universityFailed := false
 
-			// Create university because it does not exist
-			university = models.University{
-				Name:    row[2],
-				Alias:   row[3],
-				Address: row[4],
-				Website: row[5],
-				Logo:    row[6],
-				Image:   row[7],
-				Contact: models.Contact{
-					Email: row[8],
-					Phone: row[9],
-					Fax:   row[10],
-				},
-				SocialMedia: []models.SocialMedia{
-					{
-						Platform: row[11],
-						Link:     row[12],
+		// If university doesn't exist, create it
+		if err == mongo.ErrNoDocuments {
+			universityCreatedCount++
+			universityUpdate := bson.M{
+				"$setOnInsert": bson.M{
+					"_id":     primitive.NewObjectID(),
+					"name":    row[2],
+					"alias":   row[3],
+					"address": row[4],
+					"website": row[5],
+					"logo":    row[6],
+					"image":   row[7],
+					"contact": models.Contact{
+						Email: row[8],
+						Phone: row[9],
+						Fax:   row[10],
 					},
+					"socialMedia": []models.SocialMedia{
+						{
+							Platform: row[11],
+							Link:     row[12],
+						},
+					},
+					"createdAt": time.Now(),
+					"updatedAt": time.Now(),
 				},
 			}
-			university.ID = primitive.NewObjectID()
-			university.CreatedAt = time.Now()
-			university.UpdatedAt = time.Now()
-			_, err = universityCollection.InsertOne(ctx, university)
+
+			universityOpts := options.Update().SetUpsert(true)
+			_, err := universityCollection.UpdateOne(ctx, universityFilter, universityUpdate, universityOpts)
 			if err != nil {
-				return err
+				universityFailedCount++
+				universityFailedRows = append(universityFailedRows, i+1) // Append the row number (Excel row numbers start from 1)
+				universityFailed = true
 			}
-		}
-
-		// Find or create the program
-		filter := bson.M{
-			"name":                       row[13],
-			"program_details.program":    row[14],
-			"program_details.university": university.ID,
-			// Add other fields as necessary
-		}
-
-		update := bson.M{
-			"$setOnInsert": bson.M{
-				"name": row[13],
-				"program_details": models.Program{
-					University:    university.ID,
-					Program:       row[14],
-					ProgramType:   row[15],
-					UKT:           row[16],
-					SPI:           row[17],
-					Capacity:      row[18],
-					IsPacketC:     row[19] == "yes",
-					Description:   row[20],
-					Advantages:    row[21],
-					Disadvantages: row[22],
-					Requirements:  strings.Split(row[23], ","),
-					Registration: models.RegistrationDates{
-						Start: utils.ParseDate(row[24]),
-						End:   utils.ParseDate(row[25]),
-					},
-					Exam: models.ExamDates{
-						Start: utils.ParseDate(row[26]),
-						End:   utils.ParseDate(row[27]),
-					},
-					Announcement: utils.ParseDate(row[28]),
-				},
-				"createdAt": time.Now(),
-			},
-			"$set": bson.M{
-				"updatedAt": time.Now(),
-			},
-		}
-
-		opts := options.Update().SetUpsert(true)
-
-		res, err := studyProgramCollection.UpdateOne(ctx, filter, update, opts)
-		if err != nil {
-			return err
-		}
-
-		var programID primitive.ObjectID
-		if res.UpsertedCount > 0 {
-			// New program was created
-			programID = res.UpsertedID.(primitive.ObjectID)
+		} else if err != nil {
+			universityFailedCount++
+			return nil, err
 		} else {
-			// Program already existed, get its ID
-			var existingProgram models.StudyProgram
-			err = studyProgramCollection.FindOne(ctx, filter).Decode(&existingProgram)
-			if err != nil {
-				return err
+			universityUpdatedCount++
+			// If university exists, update it
+			universityUpdate := bson.M{
+				"$set": bson.M{
+					"alias":   row[3],
+					"address": row[4],
+					"website": row[5],
+					"logo":    row[6],
+					"image":   row[7],
+					"contact": models.Contact{
+						Email: row[8],
+						Phone: row[9],
+						Fax:   row[10],
+					},
+					"socialMedia": []models.SocialMedia{
+						{
+							Platform: row[11],
+							Link:     row[12],
+						},
+					},
+					"updatedAt": time.Now(),
+				},
 			}
-			programID = existingProgram.ID
+
+			_, err := universityCollection.UpdateOne(ctx, universityFilter, universityUpdate)
+			if err != nil {
+				universityFailedCount++
+				universityFailedRows = append(universityFailedRows, i+1) // Append the row number (Excel row numbers start from 1)
+				universityFailed = true
+			}
 		}
+		// Do not continue if the university update/create operation failed
+		if universityFailed {
+			continue
+		}
+		universityID := existingUniversity.ID
+
+		// Find the program
+		programFilter := bson.M{
+			"name":                       row[13],
+			"program_details.university": universityID,
+			"program_details.program":    row[14],
+		}
+		var existingProgram models.StudyProgram
+		err = studyProgramCollection.FindOne(ctx, programFilter).Decode(&existingProgram)
+
+		// If program doesn't exist, create it
+		if err == mongo.ErrNoDocuments {
+			programCreatedCount++
+			programUpdate := bson.M{
+				"$setOnInsert": bson.M{
+					"_id":  primitive.NewObjectID(),
+					"name": row[13],
+					"program_details": models.Program{
+						University:    universityID,
+						Program:       row[14],
+						ProgramType:   row[15],
+						UKT:           row[16],
+						SPI:           row[17],
+						Capacity:      row[18],
+						IsPacketC:     row[19] == "yes",
+						Description:   row[20],
+						Advantages:    row[21],
+						Disadvantages: row[22],
+						Requirements:  strings.Split(row[23], ","),
+						Registration: models.RegistrationDates{
+							Start: utils.ParseDate(row[24]),
+							End:   utils.ParseDate(row[25]),
+						},
+						Exam: models.ExamDates{
+							Start: utils.ParseDate(row[26]),
+							End:   utils.ParseDate(row[27]),
+						},
+						Announcement: utils.ParseDate(row[28]),
+					},
+					"createdAt": time.Now(),
+					"updatedAt": time.Now(),
+				},
+			}
+
+			programOpts := options.Update().SetUpsert(true)
+			_, err := studyProgramCollection.UpdateOne(ctx, programFilter, programUpdate, programOpts)
+			if err != nil {
+				programFailedCount++
+				programFailedRows = append(programFailedRows, i+1)
+			}
+		} else if err != nil {
+			programFailedCount++
+			programFailedRows = append(programFailedRows, i+1)
+		} else {
+			programUpdatedCount++
+			// If program exists, update it
+			programUpdate := bson.M{
+				"$set": bson.M{
+					"program_details": models.Program{
+						University:    universityID,
+						Program:       row[14],
+						ProgramType:   row[15],
+						UKT:           row[16],
+						SPI:           row[17],
+						Capacity:      row[18],
+						IsPacketC:     row[19] == "yes",
+						Description:   row[20],
+						Advantages:    row[21],
+						Disadvantages: row[22],
+						Requirements:  strings.Split(row[23], ","),
+						Registration: models.RegistrationDates{
+							Start: utils.ParseDate(row[24]),
+							End:   utils.ParseDate(row[25]),
+						},
+						Exam: models.ExamDates{
+							Start: utils.ParseDate(row[26]),
+							End:   utils.ParseDate(row[27]),
+						},
+						Announcement: utils.ParseDate(row[28]),
+					},
+					"updatedAt": time.Now(),
+				},
+			}
+
+			_, err := studyProgramCollection.UpdateOne(ctx, programFilter, programUpdate)
+			if err != nil {
+				programFailedCount++
+				programFailedRows = append(programFailedRows, i+1)
+			}
+		}
+		programID := existingProgram.ID
 
 		// Check if the program already exists in the specified KnowledgeProgram
 		var existingKnowledgeBase models.KnowledgeBase
@@ -377,7 +451,7 @@ func (r *StudyProgramRepository) ImportDataFromExcel(knowledgeBaseYear, knowledg
 
 		if err != nil {
 			if err != mongo.ErrNoDocuments {
-				return err
+				return nil, err
 			}
 
 			// Program does not exist in the specified KnowledgeProgram, add it
@@ -387,12 +461,26 @@ func (r *StudyProgramRepository) ImportDataFromExcel(knowledgeBaseYear, knowledg
 				bson.M{"$push": bson.M{"programs.$.study_programs": programID}},
 			)
 			if err != nil {
-				return err
+				return nil, err
 			}
-		} else {
-			continue
 		}
 	}
 
-	return nil
+	// After your existing code...
+	result := &models.ImportResult{
+		UniversityStats: models.OperationStats{
+			CreatedCount: universityCreatedCount,
+			UpdatedCount: universityUpdatedCount,
+			FailedCount:  universityFailedCount,
+			FailedRows:   universityFailedRows,
+		},
+		ProgramStats: models.OperationStats{
+			CreatedCount: programCreatedCount,
+			UpdatedCount: programUpdatedCount,
+			FailedCount:  programFailedCount,
+			FailedRows:   programFailedRows,
+		},
+	}
+
+	return result, nil
 }
