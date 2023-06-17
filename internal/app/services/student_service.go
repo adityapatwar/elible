@@ -36,7 +36,7 @@ func (s *StudentService) Create(student *models.Student) error {
 	return nil
 }
 
-func (s *StudentService) GetAll(filter *models.StudentFilter) ([]*models.Student, error) {
+func (s *StudentService) GetAll(filter *models.StudentFilter) (*models.PagedStudents, error) {
 	return s.repo.GetAll(filter)
 }
 
@@ -90,4 +90,8 @@ func (s *StudentService) AddLobby(studentID string, lobby *models.Student) error
 
 func (s *StudentService) ActivateStudnetAll() error {
 	return s.repo.ActivateAll()
+}
+
+func (s *StudentService) ImportDataFromExcelStudent(filePath string) (*models.ImportResultStudent, error) {
+	return s.repo.ImportDataFromExcelStudent(filePath)
 }
