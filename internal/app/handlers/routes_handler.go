@@ -54,6 +54,7 @@ func Routes(router *gin.Engine, cfg *config.Config, deps *internal.Dependencies)
 		studentGroup.POST("/add-lobby", middleware.AdminMiddleware(cfg, deps.AdminService, false, true, studentHandler.AddLobbyProgressToStudent))
 		studentGroup.POST("/upload", middleware.AdminMiddleware(cfg, deps.AdminService, false, true, studentHandler.uploadImage))
 		studentGroup.POST("/activated-all", middleware.AdminMiddleware(cfg, deps.AdminService, false, true, studentHandler.ActivateStudnetAll))
+		studentGroup.POST("/upload-excel", middleware.AdminMiddleware(cfg, deps.AdminService, false, true, studentHandler.UploadAndImportDataStudent))
 	}
 
 	universityGroup := router.Group("/university")

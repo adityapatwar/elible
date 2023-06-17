@@ -261,3 +261,33 @@ func (h *StudentHandler) ActivateStudnetAll(c *gin.Context) {
 	response := errors.NewResponseData(http.StatusOK, "Activate All Student Successfully", nil)
 	c.JSON(http.StatusOK, response)
 }
+
+func (h *StudentHandler) UploadAndImportDataStudent(c *gin.Context) {
+	// I assume that you use 'file' as the field name in your form
+	file, err := c.FormFile("file")
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	// You can change the destination path as you wish
+	dst := path.Join("./tempFile", file.Filename)
+	if err := c.SaveUploadedFile(file, dst); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Always delete the file after we're done
+	defer os.Remove(dst)
+
+	// Import data from the uploaded Excel file
+	stat, err := h.service.ImportDataFromExcelStudent(dst)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, errors.NewResponseError(http.StatusInternalServerError, err.Error()))
+		return
+	}
+
+	// Respond to the client
+	response := errors.NewResponseData(http.StatusOK, "Data imported successfully", stat)
+	c.JSON(http.StatusOK, response)
+}
